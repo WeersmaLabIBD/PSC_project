@@ -1,0 +1,135 @@
+---
+title: "Differential expression abundances in PSC and UC"
+author: "Paola Pibiri"
+date: "2023-10-03"
+output: html_document
+---
+
+```{r header, include=FALSE}
+###################################################################################################################
+# Authors: Paola Pibiri
+# Name: PSC_DE_abundances_per_celltype.Rmd
+# Function: create a picture with DE abundances per celltype across PSC and UC conditions
+###################################################################################################################
+```
+
+
+
+```{r libraries, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+####################
+# libraries        #
+####################
+
+library(dplyr)
+library(Seurat)
+library(tidyverse)
+```
+
+
+# Main code 
+```{r pressure, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# indicate psc and uc table location
+psc.table.location <- '/groups/umcg-weersma/tmp01/Amber/PSC/2023/Results/DEpercelltype_PSC.csv'
+uc.table.location <-  '/groups/umcg-weersma/tmp01/Amber/PSC/2023/Results/DEpercelltype_UC.csv'
+
+#read the two tables 
+psc.de.table <- read.table(psc.table.location, sep=',', header = T)
+uc.de.table <- read.table(uc.table.location, sep=',', header = T)
+
+#transorm the data in log10
+psc.de.table$num_genes <- log10(psc.de.table$num_genes)
+uc.de.table$num_genes <- log10(uc.de.table$num_genes)
+
+# add the column relative to the condition to each table
+psc.de.table[['condition']] <- 'PSC'
+uc.de.table[['condition']] <- 'UC'
+
+#check the cells that are present in one condition but not in the other
+differences.psc  <- setdiff(uc.de.table$celltype, psc.de.table$celltype)
+#
+differences.uc  <- setdiff(psc.de.table$celltype, uc.de.table$celltype)
+
+#Add the missing celltypes for psc
+psc.de.table <- psc.de.table %>% add_row(celltype= differences.psc, 
+                                             num_genes=rep(0, times = length(differences.psc)), 
+                                             condition=rep('PSC', times=length(differences.psc)))
+
+# same for uc
+uc.de.table <- uc.de.table %>% add_row(celltype= differences.uc, 
+                                             num_genes=rep(0, times = length(differences.uc)), 
+                                             condition=rep('UC', times=length(differences.uc)))
+
+
+
+# create cell type order variable
+psc.order <- psc.de.table[order(psc.de.table$num_genes, decreasing= T), 'celltype']
+
+# r bind the two tables together
+psc.uc.merged <- rbind(psc.de.table, uc.de.table)
+```
+
+# DE abundance plot
+```{r pressure, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+psc.uc.merged$celltype <- factor(psc.uc.merged$celltype, levels = rev(psc.order))
+psc.uc.merged$condition <- factor(psc.uc.merged$condition, levels = rev(c('PSC', 'UC')))
+#psc.uc.merged <- na.omit(psc.uc.merged)
+
+
+
+p<-ggplot(data=psc.uc.merged, aes(x=celltype, y= num_genes, fill=condition)) +
+  geom_bar(stat = 'identity', position=position_dodge(.5), width=.5) +
+  theme_minimal() +
+  #theme(axis.text.x = element_text(angle = 180, vjust = 0.5, hjust=1)) +
+  scale_fill_manual(values=c('PSC' = 'sienna2', 'UC' ='#4682B4')) +
+  coord_flip() 
+
+p1<-ggplot(data=psc.uc.merged, aes(x=condition, y= num_genes, fill=condition)) +
+  geom_bar(stat = 'identity', position=position_dodge2( width = 0.9), width= 0.5) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_fill_brewer(palette="Paired") +
+  facet_wrap(~ celltype,  ncol=4) 
+
+
+
+```
+
+``` {r} 
+
+# add the column relative to the condition to each table
+colnames(psc.de.table)[2] <- 'num_genes_psc'
+colnames(uc.de.table)[2] <- 'num_genes_uc'
+
+psc.de.table.neg <- psc.de.table
+psc.de.table.neg$num_genes_psc <- -(psc.de.table.neg$num_genes_psc)
+
+#merge the two dataframes at col level
+psc.uc.merged <- merge(psc.de.table.neg, uc.de.table, by = 'celltype')
+
+psc.uc.merged$celltype <- factor(psc.uc.merged$celltype, levels = rev(psc.order))
+
+psc.uc.merged <- psc.uc.merged %>%
+  filter(!(num_genes_psc == 0 & num_genes_uc == 0))
+
+
+#psc.uc.merged <- na.omit(psc.uc.merged)
+
+
+p2 <- ggplot(data=psc.uc.merged, aes(x=celltype)) +
+  geom_col(aes(y = num_genes_psc), fill = "sienna2") +
+  geom_col(aes(y = num_genes_uc), fill = "#4682B4") +
+  theme_minimal() +
+  ylim(-3.5, 3.5)+
+  ylab("PSC vs UC DE genes")+
+  coord_flip()  
+  
+
+
+
+
+```

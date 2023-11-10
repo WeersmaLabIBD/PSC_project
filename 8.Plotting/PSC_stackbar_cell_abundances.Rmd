@@ -1,0 +1,355 @@
+---
+title: "stackbar cell abundances psc"
+author: "Paola Pibiri"
+date: "2023-10-03"
+output: html_document
+---
+
+```{r header, include=FALSE}
+###################################################################################################################
+# Authors: Paola Pibiri
+# Name: PSC_cell_abundances_stackbar.Rmd
+# Function: create the final picture for the stackbar plot for cell abundances in psc
+###################################################################################################################
+```
+
+
+
+```{r libraries, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+####################
+# libraries        #
+####################
+
+library(tidyverse)
+library(Seurat)
+library(ggplot2)
+library(cowplot)
+library(dplyr)
+library(tidyr)
+```
+
+```{r functions, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+####################
+# Functions        #
+####################
+
+make_celltypes_safe <- function(cell_types){
+  # get a safe file name
+  cell_type_safes <- gsub(' |/', '_', cell_types)
+  cell_type_safes <- gsub('-', '_negative', cell_type_safes)
+  cell_type_safes <- gsub('\\+', '_positive', cell_type_safes)
+  cell_type_safes <- gsub('\\)', '', cell_type_safes)
+  cell_type_safes <- gsub('\\(', '', cell_type_safes)
+  return(cell_type_safes)
+}
+
+
+add_lower_classification <- function(seurat_object, reclassification_mapping, mapping_original_column, mapping_reclass_column, metadata_original_column, metadata_reclassification_column){
+  # add the new column
+  seurat_object@meta.data[[metadata_reclassification_column]] <- NA
+  # get each cell type in the data
+  metadata_original_cts <- unique(seurat_object@meta.data[[metadata_original_column]])
+  # and the originals in the mapping
+  reclassification_original_cts <- unique(reclassification_mapping[[mapping_original_column]])
+  # we can only map what is present in both
+  originals_both <- intersect(metadata_original_cts, reclassification_original_cts)
+  # check what is missing
+  only_metadata <- setdiff(metadata_original_cts, reclassification_original_cts)
+  only_mapping <- setdiff(reclassification_original_cts, metadata_original_cts)
+  # warn what is missing
+  if(length(only_metadata) > 0){
+    print('some celltypes only in metadata')
+    print(only_metadata)
+  }
+  if(length(only_mapping) > 0){
+    print('some celltypes only in remapping ')
+    print(only_mapping)
+  }
+  # check each cell type
+  for(celltype_original in originals_both){
+    # get the appropriate remapping
+    celltype_remapped <- reclassification_mapping[reclassification_mapping[[mapping_original_column]] == celltype_original, mapping_reclass_column]
+    # now remap in the metadata
+    seurat_object@meta.data[seurat_object@meta.data[[metadata_original_column]] == celltype_original, metadata_reclassification_column] <- celltype_remapped
+  }
+  return(seurat_object)
+}
+
+
+get_color_coding_dict <- function(){
+  color_coding <- list()
+  #ecco box
+  color_coding[["Enterocytes"]] <- "#2D6100"
+  color_coding[["DUOX2..enterocytes"]] <- "#E8B094"
+  color_coding[["DUOX2+ enterocytes"]] <- "#E8B094"
+  color_coding[["Immature.absorptive"]] <- "#d9ef8b"
+  color_coding[["Immature absorptive"]] <- "#d9ef8b"
+  color_coding[["Secretory"]] <- "#fdae61"
+  color_coding[["Undifferentiate"]] <- "#ffec80"
+  color_coding[["Myeloid.cells"]] <- "#FDE1E2"
+  color_coding[["Myeloid cells"]] <- "#FDE1E2"
+  color_coding[["Plasma.cells"]] <- "#08519c"
+  color_coding[["Plasma cells"]] <- "#08519c"
+  color_coding[["B.cells"]] <- "#17becf"
+  color_coding[["B cells"]] <- "#17becf"
+  color_coding[["CD8..T.cells"]] <- "#1f77b4"
+  color_coding[["CD8+ T cells"]] <- "#1f77b4"
+  color_coding[["CD4..T.cells"]] <- "#9edae5"
+  color_coding[["CD4+ T cells"]] <- "#9edae5"
+  color_coding[["Cycling.T"]] <- "#800080"
+  color_coding[["Cycling T"]] <- "#800080"
+  color_coding[["NK.cells"]] <- "#ff9896"
+  color_coding[["NK cells"]] <- "#ff9896"
+  color_coding[["ILCs"]] <- "#f46d43"
+  color_coding[["Inflammatory.Fibroblasts"]] <- "#c5b0d5"
+  color_coding[["Inflammatory Fibroblasts"]] <- "#c5b0d5"
+  color_coding[["Fibroblasts"]] <- "#d62728"
+  color_coding[["Glial.cells"]] <- "#ff7f0e"
+  color_coding[["Glial cells"]] <- "#ff7f0e"
+  color_coding[["Endothelial.cells"]] <- "#ffbb78"
+  color_coding[["Endothelial cells"]] <- "#ffbb78"
+  color_coding[["Undifferentiated"]] <- "gray"
+  return(color_coding)}
+
+coloured_dimplot <- function(object, group.by, ...){
+  # set colors based on condition
+  cc <- get_color_coding_dict()
+  #colScale <- scale_fill_manual(name = 'cell type', values = unlist(cc[object@meta.data[[group.by]]]))
+  # subset to the colours we have
+  colour_coding <- cc[intersect(names(cc), unique(object@meta.data[[group.by]]))]
+  # get the dimplot
+  p <- DimPlot(object = object, group.by = group.by, cols = colour_coding,...)
+  # add the colours
+  #p <- p + colScale
+  return(p)
+}
+
+# create a
+create_dimplot <- function(data, x, y, group.by, ...){
+  colour_coding <- get_color_coding_dict()
+  p <- ggplot(mapping = aes(x = data[[x]], y = data[[y]], col = data[[group.by]]), ...) +
+    geom_point(size = 0.1) +
+    ggtitle(group.by) +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), strip.background = element_rect(colour="white", fill="white")) +
+    xlab(x) +
+    ylab(y) +
+    scale_color_manual(name = group.by, values = unlist(colour_coding[unique(data[[group.by]])]))
+
+  return(p)
+}
+
+
+get_nr_cells_per_group <- function(seurat_object, groups, remove_empty=F){
+  # get the numbers table
+  numbers_table <- data.frame(table(seurat_object@meta.data[, groups]))
+  # remove entries that have no numbers
+  if (remove_empty) {
+    numbers_table <- numbers_table[numbers_table$Freq > 0, ]
+  }
+  return(numbers_table)
+}
+
+
+create_barplot_percentages <- function(numbers_table, number_column, stack_column, group_columns, stacks_to_plot=NULL, group_order=NULL){
+  # add a new column that has the groups
+  numbers_table[['group']] <- apply(numbers_table, 1, function(x){
+    # get the value of each column
+    group_parts <- rep(NA, times = length(group_columns))
+    for(i in 1:length(group_columns)){
+      group_parts[i] <- x[group_columns[i]]
+    }
+    # and paste it together
+    return(paste(group_parts, collapse = '_'))
+  })
+  # add a percentage
+  numbers_table[['group_pct']] <- apply(numbers_table, 1, function(x){
+    # get the group for this row
+    group <- x['group']
+    # and the number
+    number <- as.numeric(x[number_column])
+    # get the total of the group
+    group_total <- sum(as.numeric(numbers_table[numbers_table[['group']] == group, number_column]))
+    # calculate what percentage this entry makes up of the total
+    pct <- number / group_total
+    return(pct)
+  })
+  # subset if we don't want to plot all groups
+  if (!is.null(stacks_to_plot)) {
+    numbers_table <- numbers_table[numbers_table[[stack_column]] %in% stacks_to_plot, ]
+  }
+  # order the stack
+  if (!is.null(group_order)) {
+    numbers_table[['group']] <- factor(numbers_table[['group']], levels = group_order)
+  }
+  # grab the colours
+  cc <- get_color_coding_dict()
+  # subset to what we have
+  colour_map <- cc[intersect(names(cc), numbers_table[[stack_column]])]
+  # make the fill
+  fillScale <- scale_fill_manual(name = "cell type",values = colour_map)
+  # create the plot
+  p <- ggplot(data = numbers_table, mapping = aes(x = numbers_table[['group']], y = numbers_table[['group_pct']], fill = numbers_table[[stack_column]])) +
+    geom_bar(stat = 'identity', position = 'stack') +
+    fillScale +
+    xlab('group') +
+    ylab('fraction') +
+    theme(panel.border = element_rect(color="black", fill=NA, size=1.1), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), strip.background = element_rect(colour="white", fill="white"))
+  return(p)
+}
+
+
+
+get_average_expression_per_group <- function(seurat_object, groups, assay = 'SCT'){
+  # we will join them in a table
+  vertical_table <- NULL
+  # if we have more than one grouping variable, we have to recursively go deeper
+  if (length(groups) > 1){
+    # grab the last grouping variable
+    group_to_check <- groups[length(groups)]
+    # check for each variable in the group
+    for (group in unique(seurat_object@meta.data[[group_to_check]])){
+      # subset to that group
+      seurat_object_group <- seurat_object[, seurat_object@meta.data[[group_to_check]] == group]
+      # get the average expression for the group
+      table_identity <- get_average_expression_per_group(seurat_object_group, groups = groups[1:(length(groups) - 1)], assay = assay)
+      # add the group as a column
+      table_identity[[group_to_check]] <- group
+      # add to the total table
+      if (!is.null(vertical_table)) {
+        vertical_table <- rbind(vertical_table, table_identity)
+      }
+      else{
+        vertical_table <- table_identity
+      }
+    }
+  }
+  # if we have only one group, we can use average expression
+  else{
+    # get the average expression per group
+    average_expression <- data.frame(AverageExpression(seurat_object, assays = c(assay), group.by = groups[1])[[assay]])
+    # check each identity
+    for (identity in colnames(average_expression)) {
+      table_identity <- data.frame(gene = rownames(average_expression), expression = average_expression[[identity]])
+      # add the identity
+      table_identity[[groups[1]]] <- identity
+      # add to the total table
+      if (!is.null(vertical_table)) {
+        vertical_table <- rbind(vertical_table, table_identity)
+      }
+      else{
+        vertical_table <- table_identity
+      }
+    }
+  }
+  return(vertical_table)
+}
+
+
+create_expression_plot <- function(average_expression, gene, group_columns){
+  # subset to that gene
+  average_expression_gene <- average_expression[average_expression[['gene']] == gene, ]
+
+  # add a new column that has the groups
+  average_expression_gene[['group']] <- apply(average_expression_gene, 1, function(x){
+    # get the value of each column
+    group_parts <- rep(NA, times = length(group_columns))
+    for(i in 1:length(group_columns)){
+      group_parts[i] <- x[group_columns[i]]
+    }
+    # and paste it together
+    return(paste(group_parts, collapse = '_'))
+  })
+  # grab the colours
+  cc <- get_color_coding_dict()
+  # subset to what we have
+  colour_map <- cc[intersect(names(cc), unique(average_expression_gene[['group']]))]
+  # make the fill
+  fillScale <- scale_fill_manual(name = "condition",values = colour_map)
+  # now make the plot
+  p <- ggplot(mapping = aes(x = average_expression_gene[['group']], y = average_expression_gene[['expression']], fill = average_expression_gene[['group']])) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(size = 2, alpha = 0.5) +
+    xlab('group') +
+    ylab(paste(gene, 'expression')) +
+    ggtitle(paste('expression of ', gene)) +
+    fillScale +
+    theme(panel.border = element_rect(color="black", fill=NA, size=1.1), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), strip.background = element_rect(colour="white", fill="white"))
+  return(p)
+}
+
+```
+
+
+
+```{r main code, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# load in dataset
+dir.in  <- '/groups/umcg-weersma/tmp01/projects/PSC/ongoing/'
+psc <- readRDS(paste(dir.in, 'Seurat_object/PSC_colitis_allcomps_mergedcelltypes.rds', sep = ''))
+
+#
+DefaultAssay(psc) = "RNA"
+Idents(psc) <- "mergedcelltype"
+
+#create the groups
+# create groups
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("IgA", "IgG", "IgM", "Ig_negative")] <- "Plasma cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("Follicular", "GC", "Cycling B")] <- "B cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("CD4+ Activated Fos-hi", "CD4+ Activated Fos-lo", "CD4+ Memory", "CD4+PD1+", "Tregs" )] <- "CD4+ T cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("CD8+ IELs", "CD8+ IL17+", "CD8+ LP" )] <- "CD8+ T cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("Cycling T")] <- "Cycling T"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("NKs")] <- "NK cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("ILCs")] <- "ILCs"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("CD69- Mast", "CD69+ Mast","Cycling Monocytes","DC1","DC2","Inflammatory Monocytes","Macrophages" )] <- "Myeloid cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("Endothelial", "Microvascular","Pericytes","Post-capillary Venules")] <- "Endothelial cells"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("Myofibroblasts","RSPO3+","WNT2B+ Fos-hi","WNT2B Fos-lo 1", "WNT2B Fos-lo 2","WNT5B+ 1","WNT5B+ 2")] <- "Fibroblasts"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("Inflammatory Fibroblasts")] <- "Inflammatory Fibroblasts"
+psc@meta.data$groups[psc@meta.data$mergedcelltype %in% c("Glia")] <- "Glial cells"
+psc@meta.data$groups[psc@meta.data$celltype.final %in% c("Best4+ Enterocytes", "Enterocytes")] <- "Enterocytes"
+psc@meta.data$groups[psc@meta.data$celltype.final %in% c("DUOX2 enterocytes")] <- "DUOX2+ enterocytes"
+psc@meta.data$groups[psc@meta.data$celltype.final %in% c("Cycling TA", "Secretory TA", "Stem", "TA 1", "TA 2")] <- "Undifferentiated"
+psc@meta.data$groups[psc@meta.data$celltype.final %in% c("Enterocyte Progenitors", "Immature Enterocytes 1", "Immature Enterocytes 2")] <- "Immature absorptive"
+psc@meta.data$groups[psc@meta.data$celltype.final %in% c("Enteroendocrine", "Goblet", "Immature Goblet", "M cells", "Tuft")] <- "Secretory"
+
+#
+cell_numbers <- get_nr_cells_per_group(vedo2, c('celltype_ecco', 'PGA._resp', 'timepoint'))
+cell_numbers_innate <- cell_numbers[cell_numbers[['celltype_ecco']] %in% c('NKs', 'ILCs', 'DCs', 'Monocytes', 'Mast') , ]
+cell_numbers_adaptive <- cell_numbers[cell_numbers[['celltype_ecco']] %in% c('Plasma_cells', 'B_cells', 'T_cells') , ]
+cell_numbers_epitheleal <- cell_numbers[cell_numbers[['celltype_ecco']] %in% c('Early_epithelial', 'Epithelial') , ]
+cell_numbers_stromal <- cell_numbers[cell_numbers[['celltype_ecco']] %in% c('Endothelial', 'Fibroblasts', 'Glia') , ]
+
+#calculate the number of cells per group considering all compartments together
+cell_numbers <- get_nr_cells_per_group(psc, c('groups', 'state', 'compartment'), remove_empty = T)
+
+#add the factor and levels
+cell_numbers$state <- factor(cell_numbers$state, levels= c('HC-NI', 'UC-NI', 'UC-I', 'PSC-NI', 'PSC-I'))
+
+# get which cells are in which compartments
+immune_cells <- as.character(unique(cell_numbers[cell_numbers$compartment == 'immune', 'groups']))
+epithelial_cells <- as.character(unique(cell_numbers[cell_numbers$compartment == 'epithelial', 'groups']))
+stromal_cells <- as.character(unique(cell_numbers[cell_numbers$compartment == 'stromal', 'groups']))
+
+
+
+
+plot_grid(
+  create_barplot_percentages(cell_numbers, number_column = 'Freq', stack_column = 'groups', group_columns = c('state'), stacks_to_plot = immune_cells, group_order = c('HC-NI', 'UC-NI', 'UC-I', 'PSC-NI', 'PSC-I')) + ggtitle('immune') + xlab('condition') + NoLegend(),
+  create_barplot_percentages(cell_numbers, number_column = 'Freq', stack_column = 'groups', group_columns = c('state'), stacks_to_plot = epithelial_cells, group_order = c('HC-NI', 'UC-NI', 'UC-I', 'PSC-NI', 'PSC-I')) + xlab('condition') + ggtitle('epithelial') +NoLegend(),
+  create_barplot_percentages(cell_numbers, number_column = 'Freq', stack_column = 'groups', group_columns = c('state'), stacks_to_plot = stromal_cells, group_order = c('HC-NI', 'UC-NI', 'UC-I', 'PSC-NI', 'PSC-I')) + ggtitle('stromal') + xlab('condition') + NoLegend(),
+  get_legend(create_barplot_percentages(cell_numbers, number_column = 'Freq', stack_column = 'groups', group_columns = c('state'), stacks_to_plot = immune_cells)), 
+   get_legend(create_barplot_percentages(cell_numbers, number_column = 'Freq', stack_column = 'groups', group_columns = c('state'), stacks_to_plot = epithelial_cells)), 
+   get_legend(create_barplot_percentages(cell_numbers, number_column = 'Freq', stack_column = 'groups', group_columns = c('state'), stacks_to_plot = stromal_cells)), 
+  nrow = 2,
+  ncol = 3
+)
+
+```
+
+
+
+
+

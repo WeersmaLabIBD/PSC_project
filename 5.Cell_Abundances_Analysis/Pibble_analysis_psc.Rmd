@@ -1,0 +1,642 @@
+---
+title: "Pibble analysis"
+author: "Paola Pibiri"
+date: "2023-10-16"
+output: html_document
+---
+
+```{r header, include=FALSE}
+###################################################################################################################
+# Authors: Paola Pibiri
+# Name: Pibble_analysis_psc.Rmd
+# Function: create the pibble pictures and result tables 
+###################################################################################################################
+```
+
+
+
+```{r library}
+########################################
+# libraries                            #
+########################################
+
+library(fido)
+library(ggplot2)
+library(dplyr)
+library(phyloseq)
+library(tidyverse)
+library(stringi)
+library(Seurat)
+library(patchwork)
+library(readr)
+library(tidyr)
+library(MAST)
+library(readxl)
+library(openxlsx)
+library(reshape2)
+library(compositions)
+library(ALDEx2)
+library(EnhancedVolcano)
+library(VennDiagram)
+library(DirichletReg)
+
+```
+
+
+
+```{r functions, echo=FALSE}
+########################################
+# functions                            #
+########################################
+
+plot_pibble <- function(focus_var=focus_var, pibble_fit=pibble_fit, output_taxa=T, siglevel=siglevel) {
+  
+  if(output_taxa==T) {
+    
+    sig_decreasing <- 
+      as.data.frame.table(pibble_fit$Lambda) %>%
+      filter(Var2==focus_var) %>%
+      dplyr::mutate(idx=as.numeric(as.factor(Var1))) %>%
+      dplyr::select(idx, Freq, x=Var2, y=Var1) %>%
+      group_by(idx) %>%
+      ggdist::median_qi(Freq, .width = c(0.5, 0.75, 0.90, 0.95, 0.97)) %>%
+      dplyr::mutate(species=rep(rownames(pibble_fit$Y),5),
+             .width=factor(.width)) %>%
+      arrange(species) %>%
+      dplyr::mutate(species=reorder(factor(species),Freq)) %>% 
+      pivot_wider(species, names_from=.width, values_from=.upper) %>%
+      dplyr::select(species, p50=`0.5`, p75=`0.75`, p90=`0.9`, p95=`0.95`, p97=`0.97`) %>%
+      filter(!! rlang::sym(siglevel) < 0) %>%
+      dplyr::mutate(species=factor(species)) %>% 
+      dplyr::select(species) %>% 
+      pull() %>% 
+      levels()
+    
+    sig_increasing <- 
+      as.data.frame.table(pibble_fit$Lambda) %>%
+      filter(Var2==focus_var) %>%
+      dplyr::mutate(idx=as.numeric(as.factor(Var1))) %>%
+      dplyr::select(idx, Freq, x=Var2, y=Var1) %>%
+      group_by(idx) %>%
+      ggdist::median_qi(Freq, .width = c(0.5, 0.75, 0.90, 0.95, 0.97)) %>%
+      dplyr::mutate(species=rep(rownames(pibble_fit$Y),5),
+             .width=factor(.width)) %>%
+      arrange(species) %>%
+      dplyr::mutate(species=reorder(factor(species),Freq)) %>% 
+      pivot_wider(species, names_from=.width, values_from=.lower) %>%
+      dplyr::select(species, p50=`0.5`, p75=`0.75`, p90=`0.9`, p95=`0.95`, p97=`0.97`) %>%
+      filter(!! rlang::sym(siglevel) > 0) %>%
+      dplyr::mutate(species=factor(species)) %>% 
+      dplyr::select(species) %>% 
+      pull() %>% 
+      levels() %>% 
+      rev()
+    
+    
+    sig_taxa <- list(sig_decreasing=sig_decreasing, sig_increasing=sig_increasing)
+    
+    return(sig_taxa)
+    
+  } else {
+    
+    sig_decreasing <- 
+      as.data.frame.table(pibble_fit$Lambda) %>%
+      filter(Var2==focus_var) %>%
+      dplyr::mutate(idx=as.numeric(as.factor(Var1))) %>%
+      dplyr::select(idx, Freq, x=Var2, y=Var1) %>%
+      group_by(idx) %>%
+      ggdist::median_qi(Freq, .width = c(0.5, 0.75, 0.90, 0.95, 0.97)) %>%
+      dplyr::mutate(species=rep(rownames(pibble_fit$Y),5),
+             .width=factor(.width)) %>%
+      arrange(species) %>%
+      pivot_wider(species, names_from=.width, values_from=.upper) %>%
+      dplyr::select(species, p50=`0.5`, p75=`0.75`, p90=`0.9`, p95=`0.95`, p97=`0.97`) %>%
+      filter(!! rlang::sym(siglevel) < 0) %>%
+      dplyr::select(species) %>% 
+      pull()
+    
+    sig_increasing <- 
+      as.data.frame.table(pibble_fit$Lambda) %>%
+      filter(Var2==focus_var) %>%
+      dplyr::mutate(idx=as.numeric(as.factor(Var1))) %>%
+      dplyr::select(idx, Freq, x=Var2, y=Var1) %>%
+      group_by(idx) %>%
+      ggdist::median_qi(Freq, .width = c(0.5, 0.75, 0.90, 0.95, 0.97)) %>%
+      dplyr::mutate(species=rep(rownames(pibble_fit$Y),5),
+             .width=factor(.width)) %>%
+      arrange(species) %>%
+      pivot_wider(species, names_from=.width, values_from=.lower) %>%
+      dplyr::select(species, p50=`0.5`, p75=`0.75`, p90=`0.9`, p95=`0.95`, p97=`0.97`) %>%
+      filter(!! rlang::sym(siglevel) > 0) %>%
+      dplyr::select(species) %>% 
+      pull()
+    
+    # create the table to plot
+    plot_table <- as.data.frame.table(pibble_fit$Lambda) %>% 
+      filter(Var2==focus_var) %>% 
+      dplyr::mutate(idx=as.numeric(as.factor(Var1))) %>% 
+      dplyr::select(idx, Freq, x=Var2, y=Var1) %>% 
+      group_by(idx) %>%
+      ggdist::median_qi(Freq, .width=c(0.5, 0.75, 0.90, 0.95, 0.97)) %>%
+      dplyr::mutate(species=rep(rownames(pibble_fit$Y),5)) %>% 
+      filter(species %in% c(sig_decreasing, sig_increasing))
+    # create the plot
+    p <- ggplot(plot_table, aes(y=reorder(factor(species),Freq), x=Freq, xmin=.lower, xmax=.upper)) +
+      ggdist::geom_interval(aes(alpha=.width), color="#297cd6") +
+      scale_alpha_continuous("Credible interval", range=c(.7, .15), breaks=c(0.5, 0.75, 0.90, 0.95, 0.97)) +
+      geom_point() +
+      #scale_color_brewer() +
+      theme(#legend.position="none",
+        legend.key=element_rect(fill='white'),
+        legend.text=element_text(size=10, color="black"),
+        strip.background=element_blank(),
+        strip.text=element_blank(),
+        panel.grid.major=element_blank(), 
+        panel.grid.minor=element_blank(), 
+        panel.background=element_rect(fill="white"),
+        panel.border=element_rect(colour="black", fill=NA, size=1),
+        axis.ticks.length=unit(0.25,"cm"), 
+        axis.text.x=element_text(size=10, color="black"),
+        axis.text.y=element_text(size=10, color="black")) +
+      labs(x="Log-Ratio Value", y=NULL, title=focus_var) +
+      geom_vline(xintercept=0, linetype="dashed", color="darkgray")
+    
+    # put result in list
+    result <- list('plot' = p, 'table' = plot_table)
+    
+    return(result)    
+  }
+}
+
+add_data_from_rownames <- function(table_w_conditions, condition_column='condition', split_char='_', column_names=NULL){
+  # get the data to split
+  data_to_split <- table_w_conditions[[condition_column]]
+  # create an emtpy dataframe
+  metadata_dataframe <- NULL
+  # check each rowname
+  for(i in 1 : length(data_to_split)){
+    # get the value
+    value <- data_to_split[i]
+    # split the data
+    split_data <- strsplit(value, split_char)
+    # initialize the dataframe
+    if(is.null(metadata_dataframe)){
+      metadata_dataframe <- data.frame(matrix(, nrow=length(data_to_split), ncol = length(split_data[[1]])))
+    }
+    # add this row
+    metadata_dataframe[i, ] <- split_data[[1]]
+  }
+  # add the column names if requested
+  if(!is.null(column_names)){
+    colnames(metadata_dataframe) <- column_names
+  }
+  # add to the original data
+  table_w_conditions <- cbind(table_w_conditions, metadata_dataframe)
+  return(table_w_conditions)
+}
+
+
+
+
+
+
+
+```
+
+```{r preparation of the input data}
+
+
+# define the directory of the object
+dir.in  <- '/groups/umcg-weersma/tmp01/projects/PSC/ongoing/'
+# rad the seurat object
+psc <- readRDS(paste(dir.in, 'Seurat_object/PSC_colitis_allcomps_mergedcelltypes.rds', sep = ''))
+
+#create a new column for state
+psc@meta.data$state <- paste0(psc@meta.data$disease, '-', psc@meta.data$inflammation)
+#create the merged column with all the metadata you are interested on
+psc@meta.data$condition <- paste0(psc@meta.data$disease, '_', psc@meta.data$inflammation, '_', psc@meta.data$state, '_', psc@meta.data$Final_HTO)
+
+# create the data structure for cell abundance analysis
+psc.counts <- as.data.frame.matrix(table(psc@meta.data[, c('condition', 'mergedcelltype')]))
+#calculate the total count per row 
+#total_row <- apply(psc.counts, 1, sum)
+# calculate the proportion
+#pcts <- lapply(psc.counts, function(x) {
+  #x / total_row
+#})
+# create the dataframe with the frequencies and give to it the rownames of psc.counts
+#psc.proportion <- as.data.frame(pcts)
+psc.proportion <- psc.counts
+
+#create the column having the condition
+psc.proportion['condition'] <- rownames(psc.proportion)
+# change the location of the condition column
+psc.proportion <- psc.proportion[, c('condition', setdiff(colnames(psc.proportion), 'condition'))]
+
+#separate the column of condition in disease, inflammation and state 
+psc.proportion <- add_data_from_rownames(psc.proportion, column_names = c('disease', 'inflammation', 'state', 'Final_HTO'))
+
+```
+
+```{r main code}
+
+#define output directory
+dir.out <- '/groups/umcg-weersma/tmp01/projects/PSC/ongoing/Pibble_results/'
+
+# define the sub output directories
+psci_vs_pscni <- paste(dir.out, "PSC_I_vs_NI/", sep = "")
+uci_vs_ucni <- paste(dir.out, "UC_I_vs_NI/", sep = "")
+pscni_vs_hc <- paste(dir.out, "PSC_NI_vs_HC/", sep = "")
+ucni_vs_hc <- paste(dir.out, "UC_NI_vs_HC/", sep = "")
+
+# keep only relevant columns for the analysis
+psc.proportion$disease <- NULL
+psc.proportion$Final_HTO <- NULL
+psc.proportion$inflammation <- NULL
+psc.proportion$condition <- NULL
+```
+
+# PSC I vs NI
+```{r main code}
+########################################
+# PSC inflamed vs PSC non inflamed.    #
+# (PSC non inflamed as control)        #
+########################################
+
+
+mdat_PSCI <- 
+  psc.proportion %>%
+  filter(state %in% c("PSC-I", "PSC-NI")) %>%
+  mutate(state=relevel(factor(state), ref="PSC-NI")) %>%
+  dplyr::select(state)
+
+
+counts_PSCI <- 
+  psc.proportion %>%
+  filter(state %in% c("PSC-I", "PSC-NI")) %>%
+  dplyr::select(-state)
+
+
+#
+f1 <- reformulate(termlabels=c("state"))
+X1 <- t(model.matrix(f1, data=mdat_PSCI))
+#
+Y1 = t(counts_PSCI)
+# Y1 <- apply(Y1, 2, as.numeric)
+# rownames(Y1) <- colnames(counts_PSCI)
+  
+#
+upsilon1 <- nrow(Y1)+3
+theta1 <- matrix(0, nrow(Y1)-1, nrow(X1))
+gamma1 <- diag(nrow(X1))
+G1 <- cbind(diag(nrow(Y1)-1), -1)
+Xi1 <- (upsilon1-nrow(Y1))*G1%*%diag(nrow(Y1))%*%t(G1)
+priors1 <- pibble(Y1, X1, upsilon1, theta1, gamma1, Xi1)
+
+
+N1 <- ncol(Y1)
+D1 <- nrow(Y1)
+
+posterior1 <- refit(priors1, optim_method="lbfgs", seed=1234) 
+posterior1 <- to_clr(posterior1)
+dimnames(posterior1$Lambda)[[1]] <- rownames(Y1)
+
+# CI = 95%
+plot95 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['plot']]
+table95 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['table']]
+
+
+ggsave("PSC_I_vs_NI_p95.pdf", plot= plot95,  width = 8, height = 6, path = psci_vs_pscni)
+write.table(table95, paste0(psci_vs_pscni, 'psc_i_vs_ni_table_p95.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 90%
+plot90 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['plot']]
+table90 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['table']]
+
+ggsave("PSC_I_vs_NI_p90.pdf", plot= plot90,  width = 8, height = 6, path = psci_vs_pscni)
+write.table(table90, paste0(psci_vs_pscni, 'psc_i_vs_ni_table_p90.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 75%
+plot75 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['plot']]
+table75 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['table']]
+
+ggsave("PSC_I_vs_NI_p75.pdf", plot= plot75,  width = 8, height = 6, path = psci_vs_pscni)
+write.table(table75, paste0(psci_vs_pscni, 'psc_i_vs_ni_table_p75.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 50%
+plot50 <- plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['plot']]
+table50 <-plot_pibble(focus_var="statePSC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['table']]
+
+ggsave("PSC_I_vs_NI_p50.pdf", plot= plot50,  width = 8, height = 6, path = psci_vs_pscni)
+write.table(table50, paste0(psci_vs_pscni, 'psc_i_vs_ni_table_p50.tsv'), sep='\t', col.names = T, row.names = F)
+
+
+```
+
+
+# UC I vs NI
+```{r main code}
+########################################
+# UC inflamed vs UC non inflamed.    #
+# (UC non inflamed as control)        #
+########################################
+
+
+mdat_UCI <- 
+  psc.proportion %>%
+  filter(state %in% c("UC-I", "UC-NI")) %>%
+  mutate(state=relevel(factor(state), ref="UC-NI")) %>%
+  dplyr::select(state)
+
+
+counts_UCI <- 
+  psc.proportion %>%
+  filter(state %in% c("UC-I", "UC-NI")) %>%
+  dplyr::select(-state)
+
+
+#
+f1 <- reformulate(termlabels=c("state"))
+X1 <- t(model.matrix(f1, data=mdat_UCI))
+#
+Y1 = t(counts_UCI)
+# Y1 <- apply(Y1, 2, as.numeric)
+# rownames(Y1) <- colnames(counts_PSCI)
+  
+#
+upsilon1 <- nrow(Y1)+3
+theta1 <- matrix(0, nrow(Y1)-1, nrow(X1))
+gamma1 <- diag(nrow(X1))
+G1 <- cbind(diag(nrow(Y1)-1), -1)
+Xi1 <- (upsilon1-nrow(Y1))*G1%*%diag(nrow(Y1))%*%t(G1)
+priors1 <- pibble(Y1, X1, upsilon1, theta1, gamma1, Xi1)
+
+
+N1 <- ncol(Y1)
+D1 <- nrow(Y1)
+
+posterior1 <- refit(priors1, optim_method="lbfgs", seed=1234) 
+posterior1 <- to_clr(posterior1)
+dimnames(posterior1$Lambda)[[1]] <- rownames(Y1)
+
+# CI = 95%
+plot95 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['plot']]
+table95 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['table']]
+
+
+ggsave("UC_I_vs_NI_p95.pdf", plot= plot95,  width = 8, height = 6, path = psci_vs_pscni)
+write.table(table95, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p95.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 90%
+plot90 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['plot']]
+table90 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['table']]
+
+ggsave("UC_I_vs_NI_p90.pdf", plot= plot90,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table90, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p90.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 75%
+plot75 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['plot']]
+table75 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['table']]
+
+ggsave("UC_I_vs_NI_p75.pdf", plot= plot75,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table75, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p75.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 50%
+plot50 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['plot']]
+table50 <-plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['table']]
+
+ggsave("UC_I_vs_NI_p50.pdf", plot= plot50,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table50, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p50.tsv'), sep='\t', col.names = T, row.names = F)
+```
+
+
+# UC I vs NI
+```{r main code}
+########################################
+# UC inflamed vs UC non inflamed.    #
+# (UC non inflamed as control)        #
+########################################
+
+
+mdat_UCI <- 
+  psc.proportion %>%
+  filter(state %in% c("UC-I", "UC-NI")) %>%
+  mutate(state=relevel(factor(state), ref="UC-NI")) %>%
+  dplyr::select(state)
+
+
+counts_UCI <- 
+  psc.proportion %>%
+  filter(state %in% c("UC-I", "UC-NI")) %>%
+  dplyr::select(-state)
+
+
+#
+f1 <- reformulate(termlabels=c("state"))
+X1 <- t(model.matrix(f1, data=mdat_UCI))
+#
+Y1 = t(counts_UCI)
+# Y1 <- apply(Y1, 2, as.numeric)
+# rownames(Y1) <- colnames(counts_PSCI)
+  
+#
+upsilon1 <- nrow(Y1)+3
+theta1 <- matrix(0, nrow(Y1)-1, nrow(X1))
+gamma1 <- diag(nrow(X1))
+G1 <- cbind(diag(nrow(Y1)-1), -1)
+Xi1 <- (upsilon1-nrow(Y1))*G1%*%diag(nrow(Y1))%*%t(G1)
+priors1 <- pibble(Y1, X1, upsilon1, theta1, gamma1, Xi1)
+
+
+N1 <- ncol(Y1)
+D1 <- nrow(Y1)
+
+posterior1 <- refit(priors1, optim_method="lbfgs", seed=1234) 
+posterior1 <- to_clr(posterior1)
+dimnames(posterior1$Lambda)[[1]] <- rownames(Y1)
+
+# CI = 95%
+plot95 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['plot']]
+table95 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['table']]
+
+
+ggsave("UC_I_vs_NI_p95.pdf", plot= plot95,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table95, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p95.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 90%
+plot90 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['plot']]
+table90 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['table']]
+
+ggsave("UC_I_vs_NI_p90.pdf", plot= plot90,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table90, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p90.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 75%
+plot75 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['plot']]
+table75 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['table']]
+
+ggsave("UC_I_vs_NI_p75.pdf", plot= plot75,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table75, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p75.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 50%
+plot50 <- plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['plot']]
+table50 <-plot_pibble(focus_var="stateUC-I", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['table']]
+
+ggsave("UC_I_vs_NI_p50.pdf", plot= plot50,  width = 8, height = 6, path = uci_vs_ucni)
+write.table(table50, paste0(uci_vs_ucni, 'uc_i_vs_ni_table_p50.tsv'), sep='\t', col.names = T, row.names = F)
+
+```
+
+
+# UC NI vs HC
+```{r main code}
+########################################
+# UC inflamed vs HC.                    #
+# (HC as control)                       #
+########################################
+
+
+mdat_UCNI <- 
+  psc.proportion %>%
+  filter(state %in% c("UC-NI", "HC-NI")) %>%
+  mutate(state=relevel(factor(state), ref="HC-NI")) %>%
+  dplyr::select(state)
+
+
+counts_UCNI <- 
+  psc.proportion %>%
+  filter(state %in% c("UC-NI", "HC-NI")) %>%
+  dplyr::select(-state)
+
+
+#
+f1 <- reformulate(termlabels=c("state"))
+X1 <- t(model.matrix(f1, data=mdat_UCNI))
+#
+Y1 = t(counts_UCNI)
+# Y1 <- apply(Y1, 2, as.numeric)
+# rownames(Y1) <- colnames(counts_PSCI)
+  
+#
+upsilon1 <- nrow(Y1)+3
+theta1 <- matrix(0, nrow(Y1)-1, nrow(X1))
+gamma1 <- diag(nrow(X1))
+G1 <- cbind(diag(nrow(Y1)-1), -1)
+Xi1 <- (upsilon1-nrow(Y1))*G1%*%diag(nrow(Y1))%*%t(G1)
+priors1 <- pibble(Y1, X1, upsilon1, theta1, gamma1, Xi1)
+
+
+N1 <- ncol(Y1)
+D1 <- nrow(Y1)
+
+posterior1 <- refit(priors1, optim_method="lbfgs", seed=1234) 
+posterior1 <- to_clr(posterior1)
+dimnames(posterior1$Lambda)[[1]] <- rownames(Y1)
+
+# CI = 95%
+plot95 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['plot']]
+table95 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['table']]
+
+
+ggsave("UC_NI_vs_HC_p95.pdf", plot= plot95,  width = 8, height = 6, path = ucni_vs_hc)
+write.table(table95, paste0(ucni_vs_hc, 'uc_ni_vs_hc_table_p95.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 90%
+plot90 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['plot']]
+table90 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['table']]
+
+ggsave("UC_NI_vs_HC_p90.pdf", plot= plot90,  width = 8, height = 6, path = ucni_vs_hc)
+write.table(table90, paste0(ucni_vs_hc, 'uc_ni_vs_hc_table_p90.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 75%
+plot75 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['plot']]
+table75 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['table']]
+
+ggsave("UC_NI_vs_HC_p75.pdf", plot= plot75,  width = 8, height = 6, path = ucni_vs_hc)
+write.table(table75, paste0(ucni_vs_hc, 'uc_ni_vs_hc_table_p75.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 50%
+plot50 <- plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['plot']]
+table50 <-plot_pibble(focus_var="stateUC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['table']]
+
+ggsave("UC_NI_vs_HC_p50.pdf", plot= plot50,  width = 8, height = 6, path = ucni_vs_hc)
+write.table(table50, paste0(ucni_vs_hc, 'uc_ni_vs_hc_table_p50.tsv'), sep='\t', col.names = T, row.names = F)
+
+```
+
+# PSC NI vs HC
+```{r main code}
+########################################
+# PSC inflamed vs HC.                    #
+# (HC as control)                       #
+########################################
+
+
+mdat_PSCNI <- 
+  psc.proportion %>%
+  filter(state %in% c("PSC-NI", "HC-NI")) %>%
+  mutate(state=relevel(factor(state), ref="HC-NI")) %>%
+  dplyr::select(state)
+
+
+counts_PSCNI <- 
+  psc.proportion %>%
+  filter(state %in% c("PSC-NI", "HC-NI")) %>%
+  dplyr::select(-state)
+
+
+#
+f1 <- reformulate(termlabels=c("state"))
+X1 <- t(model.matrix(f1, data=mdat_PSCNI))
+#
+Y1 = t(counts_PSCNI)
+# Y1 <- apply(Y1, 2, as.numeric)
+# rownames(Y1) <- colnames(counts_PSCI)
+  
+#
+upsilon1 <- nrow(Y1)+3
+theta1 <- matrix(0, nrow(Y1)-1, nrow(X1))
+gamma1 <- diag(nrow(X1))
+G1 <- cbind(diag(nrow(Y1)-1), -1)
+Xi1 <- (upsilon1-nrow(Y1))*G1%*%diag(nrow(Y1))%*%t(G1)
+priors1 <- pibble(Y1, X1, upsilon1, theta1, gamma1, Xi1)
+
+
+N1 <- ncol(Y1)
+D1 <- nrow(Y1)
+
+posterior1 <- refit(priors1, optim_method="lbfgs", seed=1234) 
+posterior1 <- to_clr(posterior1)
+dimnames(posterior1$Lambda)[[1]] <- rownames(Y1)
+
+# CI = 95%
+plot95 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['plot']]
+table95 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p95")[['table']]
+
+
+ggsave("PSC_NI_vs_HC_p95.pdf", plot= plot95,  width = 8, height = 6, path = pscni_vs_hc)
+write.table(table95, paste0(pscni_vs_hc, 'psc_ni_vs_hc_table_p95.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 90%
+plot90 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['plot']]
+table90 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p90")[['table']]
+
+ggsave("PSC_NI_vs_HC_p90.pdf", plot= plot90,  width = 8, height = 6, path = pscni_vs_hc)
+write.table(table90, paste0(pscni_vs_hc, 'psc_ni_vs_hc_table_p90.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 75%
+plot75 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['plot']]
+table75 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p75")[['table']]
+
+ggsave("PSC_NI_vs_HC_p75.pdf", plot= plot75,  width = 8, height = 6, path = pscni_vs_hc)
+write.table(table75, paste0(pscni_vs_hc, 'psc_ni_vs_hc_table_p75.tsv'), sep='\t', col.names = T, row.names = F)
+
+# CI = 50%
+plot50 <- plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['plot']]
+table50 <-plot_pibble(focus_var="statePSC-NI", pibble_fit=posterior1, output_taxa=F, siglevel="p50")[['table']]
+
+ggsave("PSC_NI_vs_HC_p50.pdf", plot= plot50,  width = 8, height = 6, path = pscni_vs_hc)
+write.table(table50, paste0(pscni_vs_hc, 'psc_ni_vs_hc_table_p50.tsv'), sep='\t', col.names = T, row.names = F)
+
+
+
+```

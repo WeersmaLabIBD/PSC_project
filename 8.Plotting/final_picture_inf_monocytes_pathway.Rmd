@@ -1,0 +1,113 @@
+---
+title: "Final picture pathway"
+author: "Paola Pibiri"
+date: "2023-10-31"
+output: html_document
+---
+
+```{r header, include=FALSE}
+###################################################################################################################
+# Authors: Paola Pibiri
+# Name: Final_pictures_pathway_inf_monocytes.Rmd
+# Function: create the final picture for the manuscript of pathway
+###################################################################################################################
+```
+
+
+```{r libraries, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+####################
+# libraries        #
+####################
+
+library(dplyr)
+library(tidyverse)
+library(RColorBrewer)
+library(ggplot2)
+library(Seurat)
+```
+
+
+```{r main code}
+
+dir.input <- '/groups/umcg-weersma/tmp01/projects/PSC/ongoing/Final_pathway_pictures/input_pathway_picture/inflammatory_monocytes/'
+
+inf.mono.homeo <- read.table(paste0(dir.input, 'Inflammatory Monocytes_PSC_I_up_GO_categories_homeostasis.tsv'), header = T, sep = '\t', dec = ',')
+
+inf.mono.immune <- read.table(paste0(dir.input, 'Inflammatory Monocytes_PSC_I_up_GO_categories_immune.tsv'), header = T, sep = '\t', dec = ',')
+
+#select only the relevant columns
+inf.mono.homeo.subset <- inf.mono.homeo %>% select('Term', 'Overlap', 'Adjusted.P.value', 'Category')
+inf.mono.immune.subset <- inf.mono.immune %>% select('Term', 'Overlap', 'Adjusted.P.value', 'Category')
+
+#transform the p adjusted value in -log
+inf.mono.homeo.subset$log10 <- -log10(inf.mono.homeo.subset$Adjusted.P.value)
+inf.mono.immune.subset$log10 <- -log10(inf.mono.immune.subset$Adjusted.P.value)
+
+# further subset the dataframes to take only the fist 10 rows 
+inf.mono.homeo.subset.10 <- inf.mono.homeo.subset[1:10, ]
+#
+inf.mono.immune.subset.10 <- inf.mono.immune.subset[1:10, ]
+
+# split by / the Overlap column
+
+inf.mono.homeo.subset.10$Overlap_value <- apply(inf.mono.homeo.subset.10, 1, function(x) {
+  tot <- as.numeric(strsplit(x['Overlap'], '/')[[1]][2])
+  value <- as.numeric(strsplit(x['Overlap'], '/')[[1]][1])
+  final <- value/tot
+  return(final)
+  
+})
+
+inf.mono.immune.subset.10$Overlap_value <- apply(inf.mono.immune.subset.10, 1, function(x) {
+  tot <- as.numeric(strsplit(x['Overlap'], '/')[[1]][2])
+  value <- as.numeric(strsplit(x['Overlap'], '/')[[1]][1])
+  final <- value/tot
+  return(final)
+  
+})
+
+# make term take up less space by adding newline
+inf.mono.immune.subset.10$split_term <- gsub(' \\(GO', '\n\\(GO', inf.mono.immune.subset.10$Term)
+inf.mono.homeo.subset.10$split_term <- gsub(' \\(GO', '\n\\(GO', inf.mono.homeo.subset.10$Term)
+
+```
+
+```{r plot inf mono homeo}
+
+p <- ggplot(data=inf.mono.homeo.subset.10, mapping = aes(x=Category, y=split_term, color=log10, size=Overlap_value)) +
+  geom_point() +
+  scale_color_gradient(low='#4682B4', high='sienna2') + 
+  theme(text = element_text(size = 15)) + 
+  xlab('Category') + 
+  ylab('Pathways') + 
+  labs(color = '-log10(p)')
+
+```
+
+```{r plot inf mono immune}
+
+p2 <- ggplot(data=inf.mono.immune.subset.10, mapping = aes(x=Category, y=split_term, color=log10, size=Overlap_value)) +
+  geom_point() +
+  scale_color_gradient(low='#4682B4', high='sienna2') + 
+  theme(text = element_text(size = 15)) + 
+  xlab('Category') + 
+  ylab('Pathways') + 
+  labs(color = '-log10(p)') 
+
+
+```
+
+```{r plot inf mono both}
+
+p3 <- ggplot(data=rbind(inf.mono.immune.subset.10, inf.mono.homeo.subset.10), mapping = aes(x=Category, y=split_term, color=log10, size=Overlap_value)) +
+  geom_point() +
+  scale_color_gradient(low='darkturquoise', high='orchid') + 
+  theme(text = element_text(size = 15)) + 
+  xlab('Category') + 
+  ylab('Pathways') + 
+  labs(color = '-log10(p)') 
+  #theme(axis.text.x=element_blank(), axis.ticks = element_blank()) +
+  #xlab('')
+
+```
