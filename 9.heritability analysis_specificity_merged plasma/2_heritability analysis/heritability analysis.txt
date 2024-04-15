@@ -1,0 +1,35 @@
+
+#################################
+## Python script for CELLECT heritability
+## Run the script in gearshift
+## Conda Environment
+#################################
+
+
+################################# Step 1: Munge the GWAS data ################################# 
+# Change to the CELLECT git repository root
+cd /groups/umcg-weersma/tmp01/projects/PSC/ongoing/heritability_analysis_specificity_merged_Plasma/CELLECT/
+
+# Create a new conda environment that has the correct package versions for GWAS munging:
+conda env create -f ldsc/environment_munge_ldsc.yml # creates 'munge_ldsc' environment 
+conda activate munge_ldsc
+
+# Munge the GWAS data
+python ldsc/mtag_munge.py \
+--sumstats example/PSC_GWAS_META_PMID27992413.all.mmm.result.combined.full_test_version.txt \
+--a1 allele_0 \
+--a2 allele_1 \
+--merge-alleles data/ldsc/w_hm3.snplist \
+--keep-pval \
+--p PVAL \
+--out example/PSC_GWAS_PMID27992413
+
+################################# Step 2: Modify config.yml based on your analysis ################################# 
+# Change id and path in the config.yml file
+
+################################# Step 3: Run CELLECT-LDSC ################################# 
+# activate snakemake environment
+conda activate snakemake
+
+# Run the workflow
+snakemake --use-conda -j 20 -s cellect-ldsc.snakefile --configfile config.yml
