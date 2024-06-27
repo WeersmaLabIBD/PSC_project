@@ -26,10 +26,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-NI-3249"
-All$assignment[All$assignment == "1"]="PSC-I-3086"
-All$assignment[All$assignment == "2"]="PSC-NI-3047"
-All$assignment[All$assignment == "3"]="PSC-I-3316"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -101,10 +101,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-NI-3006"
-All$assignment[All$assignment == "2"]="PSC-NI-3267"
-All$assignment[All$assignment == "3"]="UC-I-3249"
-All$assignment[All$assignment == "4"]="PSC-NI-3191"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
+All$assignment[All$assignment == "4"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -180,10 +180,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-NI-3107"
-All$assignment[All$assignment == "1"]="HC-NI-3083"
-All$assignment[All$assignment == "2"]="UC-NI-3195"
-All$assignment[All$assignment == "3"]="PSC-I-3191"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -259,10 +259,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="PSC-NI-3086"
-All$assignment[All$assignment == "1"]="UC-NI-3044"
-All$assignment[All$assignment == "2"]="PSC-NI-3041"
-All$assignment[All$assignment == "3"]="UC-I-3107"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -338,10 +338,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="PSC-NI-3015"
-All$assignment[All$assignment == "1"]="HC-NI-3129"
-All$assignment[All$assignment == "2"]="UC-I-3023"
-All$assignment[All$assignment == "3"]="UC-NI-3085"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -417,8 +417,8 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-I-3006"
-All$assignment[All$assignment == "2"]="PSC-NI-3005"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "2"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -494,10 +494,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="HC-NI-3002"
-All$assignment[All$assignment == "1"]="PSC-NI-3176"
-All$assignment[All$assignment == "2"]="UC-NI-3287"
-All$assignment[All$assignment == "3"]="UC-I-3125"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -573,10 +573,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="PSC-NI-3162"
-All$assignment[All$assignment == "1"]="HC-NI-3049"
-All$assignment[All$assignment == "2"]="PSC-I-3019"
-All$assignment[All$assignment == "3"]="PSC-NI-3263"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -652,10 +652,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-NI-3076"
-All$assignment[All$assignment == "1"]="UC-I-3059"
-All$assignment[All$assignment == "2"]="PSC-NI-3325"
-All$assignment[All$assignment == "3"]="PSC-NI-3069"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -731,10 +731,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="HC-NI-3030"
-All$assignment[All$assignment == "1"]="UC-NI-3125"
-All$assignment[All$assignment == "2"]="PSC-I-3325"
-All$assignment[All$assignment == "3"]="PSC-I-3069"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -813,10 +813,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-I-3076"
-All$assignment[All$assignment == "1"]="UC-I-3085"
-All$assignment[All$assignment == "2"]="PSC-I-3317"
-All$assignment[All$assignment == "3"]="PSC-NI-3147"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
@@ -896,10 +896,10 @@ souporcell <- select(souporcell, c("barcode", "status", "assignment"))
 All <- merge(seurat_call, souporcell, by = "barcode", all = F)
 rownames(All) <- All$barcode
 table(All$HTO, All$assignment)
-All$assignment[All$assignment == "0"]="UC-NI-3059"
-All$assignment[All$assignment == "1"]="HC-NI-3296"
-All$assignment[All$assignment == "2"]="PSC-NI-3312"
-All$assignment[All$assignment == "3"]="PSC-I-3147"
+All$assignment[All$assignment == "0"]="x"
+All$assignment[All$assignment == "1"]="x"
+All$assignment[All$assignment == "2"]="x"
+All$assignment[All$assignment == "3"]="x"
 All$status[All$status == "doublet"]="Doublet"
 All$status[All$status == "singlet"]="Singlet"
 All$status[All$status == "unassigned"]="Negative"
